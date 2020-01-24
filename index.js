@@ -11,7 +11,7 @@
       this.input = this.setElement(input)
       this.template = this.setElement(template)
       this.savedContent = this.template.innerHTML;
-      this.onChange = debounce(this.search.bind(this), 750);
+      this.onChange = debounce(this.search.bind(this));
 
       this.init();
     }
@@ -20,34 +20,31 @@
       this.template.innerHTML = this.savedContent;
       if (value) {
         const regx = new RegExp(value, 'ig');
-        const matches = this.findMatchesRange(regx);
-        if(matches.length) {
-          this.render(matches);
-        }
+        const matches = this.findMatchesRange(regx, this.template);
+        if(matches.length) this.render(matches);
       }
     }
-    findMatchesRange(regx) {
+    findMatchesRange(regx, template) {
       const allRanges = [];
-      (function findMatchesInTemplate(template) {
-        template.childNodes.forEach((node) => {
-          const { nodeType, nodeValue } = node;
-          const isTextNode = nodeType === 3;
-          if (isTextNode && nodeValue.trim().replace(/\s/g, '').length) {
-            const curMatches = [...nodeValue.matchAll(regx)];
-            if (curMatches.length) {
-              curMatches.forEach(match => {
-                const range = document.createRange();
-                const { index } = match;
-                const searchLength = match[0].length;
-                range.setStart(node, index);
-                range.setEnd(node, index + searchLength);
-                allRanges.push(range)
-              });
-            }
+      template.childNodes.forEach((node) => {
+        const { nodeType, nodeValue, childNodes } = node;
+        const isTextNode = nodeType === 3;
+        const textNodeNotEmpty = isTextNode && nodeValue.trim().replace(/\s/g, '').length
+        if (textNodeNotEmpty) {
+          const matches = [...nodeValue.matchAll(regx)];
+          if (matches.length) {
+            matches.forEach(match => {
+              const range = document.createRange();
+              const { index } = match;
+              const searchLength = match[0].length;
+              range.setStart(node, index);
+              range.setEnd(node, index + searchLength);
+              allRanges.push(range)
+            });
           }
-          if (node.childNodes) findMatchesInTemplate(node);
-        })
-      })(this.template);
+        }
+        if (childNodes) allRanges.push(...this.findMatchesRange(regx, node));
+      })
       return allRanges;
     }
     setElement(el) {
